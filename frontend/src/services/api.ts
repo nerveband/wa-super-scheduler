@@ -1,14 +1,31 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_KEY = import.meta.env.VITE_API_KEY || 'your_api_key_here';
+
+console.log('API Config:', { API_URL, API_KEY }); // For debugging
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'X-API-KEY': API_KEY,
+    'Content-Type': 'application/json',
   },
 });
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    return Promise.reject(error);
+  }
+);
 
 export interface WhatsAppStatus {
   isConnected: boolean;
@@ -26,9 +43,15 @@ export interface Message {
 }
 
 export interface ApiResponse<T> {
-  status: string;
+  status: 'success' | 'error';
   data: T;
   message?: string;
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<T> {
+  page: number;
+  limit: number;
+  total: number;
 }
 
 export const getWhatsAppStatus = async (): Promise<ApiResponse<WhatsAppStatus>> => {
@@ -45,8 +68,8 @@ export const scheduleMessage = async (data: {
   return response.data;
 };
 
-export const getMessages = async (page = 1, limit = 10): Promise<ApiResponse<{ data: Message[]; page: number; limit: number }>> => {
-  const response = await api.get<ApiResponse<{ data: Message[]; page: number; limit: number }>>('/messages', {
+export const getMessages = async (page = 1, limit = 10): Promise<PaginatedResponse<Message[]>> => {
+  const response = await api.get<PaginatedResponse<Message[]>>('/messages', {
     params: { page, limit },
   });
   return response.data;

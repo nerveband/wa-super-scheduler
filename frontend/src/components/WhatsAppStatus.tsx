@@ -1,45 +1,71 @@
-import { Box, Text, Image, Alert, AlertIcon } from '@chakra-ui/react';
-import { WhatsAppStatus as WhatsAppStatusType } from '../services/api';
+import { Box, Text, Button, Image, Flex, Badge, Spinner } from '@chakra-ui/react'
+import { WhatsAppStatus as WhatsAppStatusType } from '../services/api'
 
-interface WhatsAppStatusProps {
-  status?: WhatsAppStatusType;
+interface Props {
+  status: WhatsAppStatusType
+  onRefresh: () => void
 }
 
-function WhatsAppStatus({ status }: WhatsAppStatusProps) {
-  if (!status) {
-    return (
-      <Alert status="warning">
-        <AlertIcon />
-        Loading WhatsApp status...
-      </Alert>
-    );
-  }
-
+export function WhatsAppStatus({ status, onRefresh }: Props) {
   return (
-    <Box p={4} bg="white" borderRadius="md" shadow="sm">
-      <Text fontSize="lg" mb={4}>
-        Status: {status.isConnected ? (
-          <Text as="span" color="green.500" fontWeight="bold">Connected</Text>
+    <Box p={6} borderWidth="1px" borderRadius="lg" bg="white">
+      <Flex align="center" mb={4}>
+        <Text fontSize="lg" fontWeight="medium">
+          Status:
+        </Text>
+        {status.isConnected ? (
+          <Badge ml={3} colorScheme="green" fontSize="0.9em" px={2} py={1}>
+            Connected
+          </Badge>
         ) : (
-          <Text as="span" color="orange.500" fontWeight="bold">Disconnected</Text>
+          <Badge ml={3} colorScheme="orange" fontSize="0.9em" px={2} py={1}>
+            Disconnected
+          </Badge>
         )}
-      </Text>
-
-      {!status.isConnected && status.qrCode && (
+      </Flex>
+      
+      {!status.isConnected && (
         <Box>
-          <Text mb={2}>Scan this QR code with WhatsApp to connect:</Text>
-          <Box bg="white" p={4} borderRadius="md" display="inline-block">
-            <Image
-              src={`data:image/png;base64,${status.qrCode}`}
-              alt="WhatsApp QR Code"
-              width="200px"
-              height="200px"
-            />
-          </Box>
+          {status.qrCode ? (
+            <Box textAlign="center" py={4}>
+              <Text mb={4} color="gray.600">
+                Scan this QR code with WhatsApp to connect:
+              </Text>
+              <Box 
+                p={4} 
+                bg="white" 
+                borderRadius="md" 
+                boxShadow="sm"
+                display="inline-block"
+              >
+                <Image 
+                  src={`data:image/png;base64,${status.qrCode}`} 
+                  alt="WhatsApp QR Code" 
+                  maxW="200px"
+                />
+              </Box>
+              <Button
+                onClick={onRefresh}
+                mt={6}
+                colorScheme="blue"
+                size="md"
+                leftIcon={<Spinner size="sm" />}
+              >
+                Refresh QR Code
+              </Button>
+            </Box>
+          ) : (
+            <Box textAlign="center" py={4}>
+              <Text color="gray.600" mb={4}>
+                Waiting for QR code...
+              </Text>
+              <Spinner size="lg" color="blue.500" />
+            </Box>
+          )}
         </Box>
       )}
     </Box>
-  );
+  )
 }
 
-export default WhatsAppStatus; 
+export default WhatsAppStatus 
