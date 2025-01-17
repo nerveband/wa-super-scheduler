@@ -68,8 +68,50 @@ X-API-KEY: your_api_key_here
 
 ### Endpoints
 
+#### Health Check
 - `GET /health` - Check server status
-- More endpoints coming soon...
+
+#### Message Management
+- `POST /api/messages/schedule` - Schedule a new message
+  ```json
+  {
+    "content": "Hello World",
+    "scheduleTime": "2024-03-15T10:00:00Z",
+    "recipients": ["1234567890@s.whatsapp.net"]
+  }
+  ```
+
+- `DELETE /api/messages/:messageId/cancel` - Cancel a scheduled message
+
+- `GET /api/messages/:messageId` - Get message details
+
+- `GET /api/messages` - Get message history
+  - Query parameters:
+    - `page` (optional, default: 1)
+    - `limit` (optional, default: 10)
+    - `status` (optional) - Filter by status
+
+- `GET /api/messages/:messageId/logs` - Get message delivery logs
+
+### Response Format
+
+Success Response:
+```json
+{
+  "status": "success",
+  "data": {
+    // Response data
+  }
+}
+```
+
+Error Response:
+```json
+{
+  "status": "error",
+  "message": "Error description"
+}
+```
 
 ## Project Structure
 
@@ -78,6 +120,7 @@ wa-super-scheduler/
 ├── src/
 │   ├── config/      # Configuration files
 │   ├── controllers/ # Route controllers
+│   ├── middleware/  # Express middleware
 │   ├── models/      # Database models
 │   ├── routes/      # API routes
 │   ├── services/    # Business logic
