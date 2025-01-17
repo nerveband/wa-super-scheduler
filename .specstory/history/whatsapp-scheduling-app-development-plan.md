@@ -3336,6 +3336,817 @@ yes go ahead and proceed.
 
 _**Assistant**_
 
+I'll start implementing the REST API endpoints. First, let's add some necessary dependencies for validation and error handling:
+
+---
+
+_**Assistant**_
+
+```
+npm install express-validator moment cors helmet
+```
+
+---
+
+_**Assistant**_
+
+
+
+First, let's create the error handling middleware:
+
+---
+
+_**Assistant**_
+
+```
+class AppError extends Error {
+    constructor(statusCode, message) {
+        super(message);
+        this.statusCode = statusCode;
+        this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+        this.isOperational = true;
+
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
+const errorHandler = (err, req, res, next) => {
+    err.statusCode = err.statusCode || 500;
+    err.status = err.status || 'error';
+
+    if (process.env.NODE_ENV === 'development') {
+        res.status(err.statusCode).json({
+            status: err.status,
+            error: err,
+            message: err.message,
+            stack: err.stack
+        });
+    } else {
+        // Production mode
+        if (err.isOperational) {
+            res.status(err.statusCode).json({
+                status: err.status,
+                message: err.message
+            });
+        } else {
+            // Programming or unknown errors
+            console.error('ERROR 💥', err);
+            res.status(500).json({
+                status: 'error',
+                message: 'Something went wrong!'
+            });
+        }
+    }
+};
+
+module.exports = {
+    AppError,
+    errorHandler
+};
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+Now, let's create the validation middleware:
+
+---
+
+_**Assistant**_
+
+```
+const { validationResult, body } = require('express-validator');
+const moment = require('moment');
+const { AppError } = require('./errorHandler');
+
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        throw new AppError(400, errors.array()[0].msg);
+    }
+    next();
+};
+
+const scheduleMessageValidation = [
+    body('content')
+        .trim()
+        .notEmpty()
+        .withMessage('Message content is required')
+        .isLength({ max: 4096 })
+        .withMessage('Message content must not exceed 4096 characters'),
+
+    body('scheduleTime')
+        .notEmpty()
+        .withMessage('Schedule time is required')
+        .custom((value) => {
+            const scheduledTime = moment(value);
+            if (!scheduledTime.isValid()) {
+                throw new Error('Invalid schedule time format');
+            }
+            if (scheduledTime.isBefore(moment())) {
+                throw new Error('Schedule time must be in the future');
+            }
+            return true;
+        }),
+
+    body('recipients')
+        .isArray({ min: 1 })
+        .withMessage('At least one recipient is required')
+        .custom((recipients) => {
+            const validRecipients = recipients.every(recipient => 
+                /^\d+@s\.whatsapp\.net$/.test(recipient) || /^\d+-\d+@g\.us$/.test(recipient)
+            );
+            if (!validRecipients) {
+                throw new Error('Invalid recipient format');
+            }
+            return true;
+        }),
+
+    validate
+];
+
+const messageIdValidation = [
+    body('messageId')
+        .notEmpty()
+        .withMessage('Message ID is required')
+        .isInt()
+        .withMessage('Invalid message ID'),
+    
+    validate
+];
+
+module.exports = {
+    scheduleMessageValidation,
+    messageIdValidation
+};
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+Now, let's create the message controller:
+
+---
+
+_**Assistant**_
+
+```
+const scheduler = require('../services/scheduler');
+const { AppError } = require('../middleware/errorHandler');
+const db = require('../config/database');
+
+const scheduleMessage = async (req, res, next) => {
+    try {
+        const { content, scheduleTime, recipients } = req.body;
+        const message = await scheduler.scheduleNewMessage(content, scheduleTime, recipients);
+        
+        res.status(201).json({
+            status: 'success',
+            data: {
+                message
+            }
+        });
+    } catch (error) {
+        next(new AppError(500, 'Error scheduling message: ' + error.message));
+    }
+};
+
+const cancelMessage = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        await scheduler.cancelScheduledMessage(messageId);
+        
+        res.status(200).json({
+            status: 'success',
+            message: 'Message cancelled successfully'
+        });
+    } catch (error) {
+        next(new AppError(500, 'Error cancelling message: ' + error.message));
+    }
+};
+
+const getMessage = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        
+        const message = await new Promise((resolve, reject) => {
+            const query = `
+                SELECT m.*, GROUP_CONCAT(r.recipient_id) as recipients
+                FROM messages m
+                LEFT JOIN recipients r ON m.id = r.message_id
+                WHERE m.id = ?
+                GROUP BY m.id
+            `;
+            
+            db.get(query, [messageId], (err, row) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (!row) {
+                    reject(new AppError(404, 'Message not found'));
+                    return;
+                }
+                resolve({
+                    ...row,
+                    recipients: row.recipients ? row.recipients.split(',') : []
+                });
+            });
+        });
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                message
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getMessageHistory = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 10, status } = req.query;
+        const offset = (page - 1) * limit;
+        
+        let query = `
+            SELECT m.*, GROUP_CONCAT(r.recipient_id) as recipients
+            FROM messages m
+            LEFT JOIN recipients r ON m.id = r.message_id
+        `;
+        
+        const params = [];
+        if (status) {
+            query += ' WHERE m.status = ?';
+            params.push(status);
+        }
+        
+        query += `
+            GROUP BY m.id
+            ORDER BY m.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+        params.push(limit, offset);
+
+        const messages = await new Promise((resolve, reject) => {
+            db.all(query, params, (err, rows) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(rows.map(row => ({
+                    ...row,
+                    recipients: row.recipients ? row.recipients.split(',') : []
+                })));
+            });
+        });
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                messages,
+                page: parseInt(page),
+                limit: parseInt(limit)
+            }
+        });
+    } catch (error) {
+        next(new AppError(500, 'Error fetching message history: ' + error.message));
+    }
+};
+
+const getMessageLogs = async (req, res, next) => {
+    try {
+        const { messageId } = req.params;
+        
+        const logs = await new Promise((resolve, reject) => {
+            const query = `
+                SELECT *
+                FROM message_logs
+                WHERE message_id = ?
+                ORDER BY created_at DESC
+            `;
+            
+            db.all(query, [messageId], (err, rows) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(rows);
+            });
+        });
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                logs
+            }
+        });
+    } catch (error) {
+        next(new AppError(500, 'Error fetching message logs: ' + error.message));
+    }
+};
+
+module.exports = {
+    scheduleMessage,
+    cancelMessage,
+    getMessage,
+    getMessageHistory,
+    getMessageLogs
+};
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Now, let's create the routes:
+
+---
+
+_**Assistant**_
+
+```
+const express = require('express');
+const { scheduleMessageValidation } = require('../middleware/validator');
+const {
+    scheduleMessage,
+    cancelMessage,
+    getMessage,
+    getMessageHistory,
+    getMessageLogs
+} = require('../controllers/messageController');
+
+const router = express.Router();
+
+// Schedule a new message
+router.post('/schedule', scheduleMessageValidation, scheduleMessage);
+
+// Cancel a scheduled message
+router.delete('/:messageId/cancel', cancelMessage);
+
+// Get a specific message
+router.get('/:messageId', getMessage);
+
+// Get message history with pagination
+router.get('/', getMessageHistory);
+
+// Get message delivery logs
+router.get('/:messageId/logs', getMessageLogs);
+
+module.exports = router;
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Finally, let's update the main application file to use our new routes and middleware:
+
+---
+
+_**Assistant**_
+
+```
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const { connectToWhatsApp } = require('./config/whatsapp');
+const { errorHandler } = require('./middleware/errorHandler');
+const messageRoutes = require('./routes/messageRoutes');
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Basic security middleware
+app.use((req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey || apiKey !== process.env.API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+});
+
+// Routes
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
+
+app.use('/api/messages', messageRoutes);
+
+// Error handling
+app.use(errorHandler);
+
+// Handle 404
+app.use((req, res) => {
+    res.status(404).json({
+        status: 'error',
+        message: 'Route not found'
+    });
+});
+
+// Initialize WhatsApp connection
+connectToWhatsApp().catch(err => {
+    console.error('Error initializing WhatsApp:', err);
+    process.exit(1);
+});
+
+// Start server
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+});
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let's commit all these changes:
+
+---
+
+_**Assistant**_
+
+```
+git add . && git commit -m "feat: implement REST API endpoints and middleware" && git push
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let's update the README with the new API endpoints:
+
+---
+
+_**Assistant**_
+
+```
+# WhatsApp Super Scheduler
+
+A powerful WhatsApp message scheduling system that allows you to schedule and automate message delivery to WhatsApp groups and individual contacts.
+
+## Features
+
+- Schedule text messages to be sent at specific times
+- Send to multiple WhatsApp groups or contacts simultaneously
+- Calendar-based message management interface
+- Preview and test messages before scheduling
+- Delete scheduled messages
+- Persistent WhatsApp session management
+
+## Prerequisites
+
+- Node.js (v14 or higher)
+- npm (v6 or higher)
+- A WhatsApp account
+- SQLite3
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/nerveband/wa-super-scheduler.git
+   cd wa-super-scheduler
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Configure your environment variables in `.env`
+
+## Development
+
+Start the development server with auto-reload:
+```bash
+npm run dev
+```
+
+## Production
+
+Start the production server:
+```bash
+npm start
+```
+
+## WhatsApp Authentication
+
+1. Start the server
+2. Scan the QR code that appears in the terminal with your WhatsApp
+3. The session will be saved automatically
+
+## API Documentation
+
+### Authentication
+All API endpoints require an API key header:
+```
+X-API-KEY: your_api_key_here
+```
+
+### Endpoints
+
+#### Health Check
+- `GET /health` - Check server status
+
+#### Message Management
+- `POST /api/messages/schedule` - Schedule a new message
+  ```json
+  {
+    "content": "Hello World",
+    "scheduleTime": "2024-03-15T10:00:00Z",
+    "recipients": ["1234567890@s.whatsapp.net"]
+  }
+  ```
+
+- `DELETE /api/messages/:messageId/cancel` - Cancel a scheduled message
+
+- `GET /api/messages/:messageId` - Get message details
+
+- `GET /api/messages` - Get message history
+  - Query parameters:
+    - `page` (optional, default: 1)
+    - `limit` (optional, default: 10)
+    - `status` (optional) - Filter by status
+
+- `GET /api/messages/:messageId/logs` - Get message delivery logs
+
+### Response Format
+
+Success Response:
+```json
+{
+  "status": "success",
+  "data": {
+    // Response data
+  }
+}
+```
+
+Error Response:
+```json
+{
+  "status": "error",
+  "message": "Error description"
+}
+```
+
+## Project Structure
+
+```
+wa-super-scheduler/
+├── src/
+│   ├── config/      # Configuration files
+│   ├── controllers/ # Route controllers
+│   ├── middleware/  # Express middleware
+│   ├── models/      # Database models
+│   ├── routes/      # API routes
+│   ├── services/    # Business logic
+│   └── utils/       # Utility functions
+├── docs/           # Documentation
+├── sessions/       # WhatsApp session data
+└── data/          # SQLite database
+```
+
+## Author
+
+[Ashraf Ali](https://ashrafali.net)
+
+## License
+
+ISC
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let's update the version and commit:
+
+---
+
+_**Assistant**_
+
+```
+{
+  "name": "wa-super-scheduler",
+  "version": "1.1.0",
+  "description": "WhatsApp message scheduling system for automated message delivery",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "whatsapp",
+    "scheduler",
+    "automation",
+    "messaging"
+  ],
+  "author": {
+    "name": "Ashraf Ali",
+    "url": "https://ashrafali.net"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "moment": "^2.30.1",
+    "node-cron": "^3.0.2",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let's commit these changes:
+
+---
+
+_**Assistant**_
+
+```
+git add . && git commit -m "docs: update README with API documentation and bump version to 1.1.0" && git push
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+I've completed the implementation of the REST API endpoints with:
+
+1. Message scheduling endpoints
+2. Input validation
+3. Error handling
+4. API documentation
+5. Security middleware (helmet, cors)
+6. Pagination support
+7. Message logs
+
+The API now supports:
+- Scheduling messages
+- Cancelling scheduled messages
+- Retrieving message details
+- Viewing message history
+- Checking message delivery logs
+
+Would you like me to:
+1. Add more features (like message templates or recurring messages)
+2. Add tests
+3. Set up CI/CD
+4. Or something else?
+
+Let me know what you'd like to tackle next!
+
+---
+
+_**User**_
+
+make sure stage 1 is complete, so that we can get to stage 2 and then start on stage 2. 
+
+---
+
+_**Assistant**_
+
 
 
 ---
