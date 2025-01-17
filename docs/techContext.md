@@ -1,52 +1,52 @@
 # Technical Context
 
-## Development Environment
-- OS: macOS (development), Linux (deployment)
-- Runtime: Node.js or Python
-- Database: SQLite (local development)
-- Version Control: Git
+## Technology Stack
 
-## Technical Requirements
+### Backend
+- Node.js
+- Express.js
+- SQLite3 (Database)
+- @whiskeysockets/baileys (WhatsApp Web API)
+- node-cron (Scheduling)
 
-### Server Requirements
-- Persistent process management
-- WhatsApp session maintenance
-- Database connection handling
-- Scheduler service
-- REST API endpoints
-
-### Client Requirements
-- Modern browser support
-- Responsive design
-- Calendar interface
-- Form validation
-- Real-time status updates
-
-## Technical Constraints
-
-### WhatsApp Limitations
-- Message deletion time window
-- Media size limits
-- Rate limiting considerations
-- Session management requirements
-
-### System Limitations
-- Single WhatsApp account per instance
-- Database scalability (SQLite)
-- Local file system dependencies
-- Memory usage for persistent session
+### Frontend
+- React
+- TypeScript
+- Vite
+- Chakra UI
+- React Query
+- React Router
 
 ## Development Setup
-1. Local environment setup
-   - Install Node.js/Python
-   - Setup SQLite
-   - Configure development tools
+1. Node.js >= 14
+2. npm >= 6
+3. Git
+4. SQLite3
 
-2. WhatsApp Authentication
-   - QR code scanning process
-   - Session persistence handling
+## Project Structure
+```
+wa-super-scheduler/
+├── backend/             # Backend Node.js application
+│   ├── src/            # Source code
+│   │   ├── config/     # Configuration
+│   │   ├── routes/     # API routes
+│   │   └── services/   # Business logic
+│   ├── .env            # Environment variables
+│   └── package.json    # Dependencies
+├── frontend/           # Frontend React application
+│   ├── src/           # Source code
+│   │   ├── components/ # React components
+│   │   ├── pages/     # Page components
+│   │   ├── services/  # API services
+│   │   └── theme/     # UI theme
+│   ├── .env           # Environment variables
+│   └── package.json   # Dependencies
+└── docs/              # Documentation
+```
 
-3. Development Workflow
-   - Local testing procedures
-   - Database migrations
-   - API testing 
+## Technical Constraints
+1. WhatsApp Web API limitations
+2. Message delivery timing precision
+3. Session persistence requirements
+4. SQLite concurrent access
+5. Frontend-backend communication security 

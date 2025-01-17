@@ -1,29 +1,35 @@
 # WhatsApp Super Scheduler
 
-A powerful WhatsApp message scheduling system that allows you to schedule and automate message delivery to WhatsApp groups and individual contacts.
+A powerful WhatsApp message scheduling system that allows you to schedule and automate message delivery.
 
-## Features
+## Author
+**Ashraf Ali**  
+Website: [https://ashrafali.net](https://ashrafali.net)
 
-- Schedule text messages to be sent at specific times
-- Send to multiple WhatsApp groups or contacts simultaneously
-- Calendar-based message management interface
-- Preview and test messages before scheduling
-- Delete scheduled messages
-- Persistent WhatsApp session management
+## Project Structure
+```
+wa-super-scheduler/
+├── backend/             # Backend Node.js application
+│   ├── src/            # Source code
+│   ├── .env            # Environment variables
+│   └── package.json    # Backend dependencies
+└── frontend/           # Frontend React application
+    ├── src/           # Source code
+    ├── .env           # Environment variables
+    └── package.json   # Frontend dependencies
+```
 
 ## Prerequisites
+- Node.js >= 14
+- npm >= 6
+- WhatsApp account for testing
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
-- A WhatsApp account
-- SQLite3
+## Setup Instructions
 
-## Installation
-
-1. Clone the repository:
+### Backend Setup
+1. Navigate to the backend directory:
    ```bash
-   git clone https://github.com/nerveband/wa-super-scheduler.git
-   cd wa-super-scheduler
+   cd backend
    ```
 
 2. Install dependencies:
@@ -31,109 +37,82 @@ A powerful WhatsApp message scheduling system that allows you to schedule and au
    npm install
    ```
 
-3. Create environment file:
-   ```bash
-   cp .env.example .env
+3. Create `.env` file:
+   ```env
+   PORT=3000
+   NODE_ENV=development
+   DB_PATH=./data/scheduler.sqlite
+   WA_SESSION_DIR=./sessions
+   WA_RECONNECT_INTERVAL=5000
+   API_KEY=your_api_key_here
    ```
 
-4. Configure your environment variables in `.env`
+### Frontend Setup
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
 
-## Development
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Start the development server with auto-reload:
-```bash
-npm run dev
-```
+3. Create `.env` file:
+   ```env
+   VITE_API_URL=http://localhost:3000/api
+   VITE_API_KEY=your_api_key_here
+   ```
 
-## Production
+## Running the Application
 
-Start the production server:
-```bash
-npm start
-```
+### Start Backend Server
+1. Navigate to backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The backend server will start on http://localhost:3000
+
+### Start Frontend Development Server
+1. Navigate to frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The frontend will be available at http://localhost:5173
 
 ## WhatsApp Authentication
+1. Start the backend server
+2. Open the frontend application
+3. Look for the QR code in the WhatsApp Status section
+4. Scan the QR code with your WhatsApp mobile app
+5. Once connected, you can start scheduling messages
 
-1. Start the server
-2. Scan the QR code that appears in the terminal with your WhatsApp
-3. The session will be saved automatically
+## Features
+- Schedule WhatsApp messages for future delivery
+- Support for multiple recipients
+- Message status tracking
+- Real-time WhatsApp connection status
+- Modern, responsive UI
 
 ## API Documentation
+The backend provides the following endpoints:
 
-### Authentication
-All API endpoints require an API key header:
-```
-X-API-KEY: your_api_key_here
-```
-
-### Endpoints
-
-#### Health Check
-- `GET /health` - Check server status
-
-#### Message Management
+- `GET /api/health` - Check server status
+- `GET /api/whatsapp/status` - Get WhatsApp connection status
 - `POST /api/messages/schedule` - Schedule a new message
-  ```json
-  {
-    "content": "Hello World",
-    "scheduleTime": "2024-03-15T10:00:00Z",
-    "recipients": ["1234567890@s.whatsapp.net"]
-  }
-  ```
+- `GET /api/messages` - Get list of scheduled messages
+- `DELETE /api/messages/:id/cancel` - Cancel a scheduled message
 
-- `DELETE /api/messages/:messageId/cancel` - Cancel a scheduled message
-
-- `GET /api/messages/:messageId` - Get message details
-
-- `GET /api/messages` - Get message history
-  - Query parameters:
-    - `page` (optional, default: 1)
-    - `limit` (optional, default: 10)
-    - `status` (optional) - Filter by status
-
-- `GET /api/messages/:messageId/logs` - Get message delivery logs
-
-### Response Format
-
-Success Response:
-```json
-{
-  "status": "success",
-  "data": {
-    // Response data
-  }
-}
-```
-
-Error Response:
-```json
-{
-  "status": "error",
-  "message": "Error description"
-}
-```
-
-## Project Structure
-
-```
-wa-super-scheduler/
-├── src/
-│   ├── config/      # Configuration files
-│   ├── controllers/ # Route controllers
-│   ├── middleware/  # Express middleware
-│   ├── models/      # Database models
-│   ├── routes/      # API routes
-│   ├── services/    # Business logic
-│   └── utils/       # Utility functions
-├── docs/           # Documentation
-├── sessions/       # WhatsApp session data
-└── data/          # SQLite database
-```
-
-## Author
-
-[Ashraf Ali](https://ashrafali.net)
-
-## License
-
-ISC
+All endpoints require the `X-API-KEY` header with your API key.

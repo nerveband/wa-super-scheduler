@@ -1,32 +1,27 @@
 # Product Context
 
 ## Purpose
-The WhatsApp Super Scheduler exists to solve the challenge of scheduling and automating WhatsApp messages for businesses and individuals who need to send messages at specific times to multiple groups or contacts.
+WhatsApp Super Scheduler is a message scheduling system that allows users to automate and schedule WhatsApp message delivery. It solves the problem of manual message sending by providing a way to schedule messages in advance.
 
-## Problems Solved
-1. Manual Message Sending: Eliminates the need to manually send messages at specific times
-2. Group Management: Enables sending to multiple groups/contacts simultaneously
-3. Message Planning: Provides calendar-based visualization of scheduled messages
-4. Consistency: Ensures messages are sent at exactly the right time, every time
+## Core Problems Solved
+1. Manual message sending at specific times
+2. Managing multiple recipients
+3. Tracking message delivery status
+4. Maintaining WhatsApp connection
+5. Organizing scheduled messages
 
-## Core Functionality
-1. **Message Scheduling**
-   - Schedule text messages (MVP)
-   - Future support for media (images, videos, audio, polls)
-   - Calendar-based interface for message management
+## How It Works
+1. Users connect their WhatsApp account via QR code
+2. They can schedule messages with:
+   - Message content
+   - Delivery time
+   - Multiple recipients
+3. The system maintains the WhatsApp connection
+4. Messages are delivered automatically at scheduled times
+5. Users can track delivery status and manage scheduled messages
 
-2. **Recipient Management**
-   - Send to multiple WhatsApp groups
-   - Send to individual contacts
-   - Preview and test functionality
-
-3. **Message Control**
-   - Create scheduled messages
-   - Delete messages (including "delete for everyone" feature)
-   - View scheduled messages in calendar/list format
-
-## Success Metrics
-1. Reliable message delivery at scheduled times
-2. Persistent WhatsApp session maintenance
-3. User-friendly scheduling interface
-4. Successful message deletion within WhatsApp's timeframe 
+## Target Users
+- Business owners
+- Social media managers
+- Community managers
+- Anyone needing to schedule WhatsApp messages 

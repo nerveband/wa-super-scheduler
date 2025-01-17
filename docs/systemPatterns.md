@@ -1,47 +1,48 @@
 # System Patterns
 
 ## Architecture Overview
+The system follows a client-server architecture with:
+- Frontend (React SPA)
+- Backend (Node.js REST API)
+- SQLite Database
+- WhatsApp Web Client
 
-### Two-Component System
-1. **Server Component**
-   - Maintains persistent WhatsApp session
-   - Handles message scheduling and delivery
-   - Manages data storage
-   - Provides REST API endpoints
+## Key Technical Decisions
 
-2. **Client Component**
-   - Web-based user interface
-   - Calendar visualization
-   - Message management interface
+### 1. Database Choice
+- SQLite for simplicity and portability
+- Single-file database
+- No separate database server needed
+- Suitable for moderate load
 
-## Technical Decisions
+### 2. WhatsApp Integration
+- Using @whiskeysockets/baileys
+- Web-based authentication
+- Session persistence
+- Automated reconnection
 
-### Backend Technology Stack
-- Language: Node.js with Baileys OR Python with pywhatkit
-- Database: SQLite (MVP), potential migration path to PostgreSQL
-- Scheduler: node-cron (Node.js) OR APScheduler (Python)
-- API: RESTful endpoints for message management
+### 3. Message Scheduling
+- node-cron for scheduling
+- In-memory job queue
+- Database-backed persistence
+- Status tracking
 
-### Frontend Technology Stack
-- Framework: React
-- UI Components: Tailwind CSS
-- Calendar: FullCalendar.js
-- State Management: React Context/Redux
+### 4. Frontend Framework
+- React with TypeScript
+- Vite for development
+- Chakra UI for components
+- React Query for data fetching
 
-## Design Patterns
+### 5. API Design
+- RESTful endpoints
+- API key authentication
+- JSON response format
+- Standardized error handling
 
-### Message Scheduling Pattern
-1. Client creates message with metadata
-2. Server stores in database
-3. Scheduler monitors for pending messages
-4. WhatsApp session executes messages at scheduled time
-
-### Session Management Pattern
-1. Persistent WhatsApp session maintained
-2. Automatic reconnection on disconnection
-3. QR code re-authentication when needed
-
-### Data Storage Pattern
-1. Messages table: content, schedule, status
-2. Recipients table: groups and contacts
-3. Audit log: delivery status and history 
+## Data Flow
+1. User schedules message via frontend
+2. Backend validates and stores in database
+3. Scheduler checks for pending messages
+4. WhatsApp service sends messages
+5. Status updates stored in database
+6. Frontend polls for updates 
