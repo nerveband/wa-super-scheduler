@@ -32,6 +32,14 @@ export interface WhatsAppStatus {
   qrCode?: string;
 }
 
+export interface Contact {
+  id: string;
+  name: string;
+  number: string;
+  type: 'individual' | 'group';
+  lastMessageTime?: string;
+}
+
 export interface Message {
   id: number;
   content: string;
@@ -56,6 +64,11 @@ export interface PaginatedResponse<T> extends ApiResponse<T> {
 
 export const getWhatsAppStatus = async (): Promise<ApiResponse<WhatsAppStatus>> => {
   const response = await api.get<ApiResponse<WhatsAppStatus>>('/whatsapp/status');
+  return response.data;
+};
+
+export const getContacts = async (): Promise<ApiResponse<Contact[]>> => {
+  const response = await api.get<ApiResponse<Contact[]>>('/whatsapp/contacts');
   return response.data;
 };
 

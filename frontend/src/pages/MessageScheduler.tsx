@@ -4,7 +4,6 @@ import {
   Button,
   FormControl,
   FormLabel,
-  Input,
   Textarea,
   VStack,
   useToast,
@@ -14,24 +13,35 @@ import {
   Badge,
 } from '@chakra-ui/react';
 import { scheduleMessage } from '../services/api';
+import ContactSelector from '../components/ContactSelector';
 
 export default function MessageScheduler() {
   const [content, setContent] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
-  const [recipients, setRecipients] = useState('');
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedRecipients.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one recipient',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const recipientList = recipients.split(',').map(r => r.trim());
       await scheduleMessage({
         content,
         scheduleTime,
-        recipients: recipientList,
+        recipients: selectedRecipients,
       });
 
       toast({
@@ -45,7 +55,7 @@ export default function MessageScheduler() {
       // Reset form
       setContent('');
       setScheduleTime('');
-      setRecipients('');
+      setSelectedRecipients([]);
     } catch (error) {
       toast({
         title: 'Error',
@@ -70,14 +80,16 @@ export default function MessageScheduler() {
         </Box>
 
         <form onSubmit={handleSubmit}>
-          <VStack spacing={4} align="stretch">
+          <VStack spacing={6} align="stretch">
             <FormControl isRequired>
               <FormLabel>Recipients</FormLabel>
-              <Input
-                placeholder="Enter phone numbers separated by commas (e.g., +1234567890, +9876543210)"
-                value={recipients}
-                onChange={(e) => setRecipients(e.target.value)}
+              <ContactSelector
+                value={selectedRecipients}
+                onChange={setSelectedRecipients}
               />
+              <Text fontSize="sm" color="gray.500" mt={1}>
+                {selectedRecipients.length} recipient(s) selected
+              </Text>
             </FormControl>
 
             <FormControl isRequired>
@@ -92,11 +104,17 @@ export default function MessageScheduler() {
 
             <FormControl isRequired>
               <FormLabel>Schedule Time</FormLabel>
-              <Input
+              <input
                 type="datetime-local"
                 value={scheduleTime}
                 onChange={(e) => setScheduleTime(e.target.value)}
                 min={new Date().toISOString().slice(0, 16)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '6px',
+                }}
               />
             </FormControl>
 
@@ -106,6 +124,7 @@ export default function MessageScheduler() {
                 type="submit"
                 isLoading={isSubmitting}
                 loadingText="Scheduling..."
+                isDisabled={selectedRecipients.length === 0}
               >
                 Schedule Message
               </Button>
