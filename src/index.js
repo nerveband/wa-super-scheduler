@@ -1,11 +1,17 @@
 const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const { connectToWhatsApp } = require('./config/whatsapp');
+const { errorHandler } = require('./middleware/errorHandler');
+const messageRoutes = require('./routes/messageRoutes');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
 
 // Basic security middleware
@@ -17,9 +23,22 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check endpoint
+// Routes
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
+});
+
+app.use('/api/messages', messageRoutes);
+
+// Error handling
+app.use(errorHandler);
+
+// Handle 404
+app.use((req, res) => {
+    res.status(404).json({
+        status: 'error',
+        message: 'Route not found'
+    });
 });
 
 // Initialize WhatsApp connection

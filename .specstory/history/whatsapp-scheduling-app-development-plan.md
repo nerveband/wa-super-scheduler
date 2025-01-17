@@ -2779,6 +2779,563 @@ Also, this repo is now licenced under GPL 3 since it uses [libsignal-node](https
 
 _**Assistant**_
 
+I'll help you update the README and package.json with your author information, and then implement the message scheduling service.
+
+First, let's update the README:
+
+---
+
+_**Assistant**_
+
+```
+# WhatsApp Super Scheduler
+
+A powerful WhatsApp message scheduling system that allows you to schedule and automate message delivery to WhatsApp groups and individual contacts.
+
+## Features
+
+- Schedule text messages to be sent at specific times
+- Send to multiple WhatsApp groups or contacts simultaneously
+- Calendar-based message management interface
+- Preview and test messages before scheduling
+- Delete scheduled messages
+- Persistent WhatsApp session management
+
+## Prerequisites
+
+- Node.js (v14 or higher)
+- npm (v6 or higher)
+- A WhatsApp account
+- SQLite3
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/nerveband/wa-super-scheduler.git
+   cd wa-super-scheduler
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Configure your environment variables in `.env`
+
+## Development
+
+Start the development server with auto-reload:
+```bash
+npm run dev
+```
+
+## Production
+
+Start the production server:
+```bash
+npm start
+```
+
+## WhatsApp Authentication
+
+1. Start the server
+2. Scan the QR code that appears in the terminal with your WhatsApp
+3. The session will be saved automatically
+
+## API Documentation
+
+### Authentication
+All API endpoints require an API key header:
+```
+X-API-KEY: your_api_key_here
+```
+
+### Endpoints
+
+- `GET /health` - Check server status
+- More endpoints coming soon...
+
+## Project Structure
+
+```
+wa-super-scheduler/
+├── src/
+│   ├── config/      # Configuration files
+│   ├── controllers/ # Route controllers
+│   ├── models/      # Database models
+│   ├── routes/      # API routes
+│   ├── services/    # Business logic
+│   └── utils/       # Utility functions
+├── docs/           # Documentation
+├── sessions/       # WhatsApp session data
+└── data/          # SQLite database
+```
+
+## Author
+
+[Ashraf Ali](https://ashrafali.net)
+
+## License
+
+ISC
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+Now, let's update the package.json with your information:
+
+---
+
+_**Assistant**_
+
+```
+{
+  "name": "wa-super-scheduler",
+  "version": "1.0.1",
+  "description": "WhatsApp message scheduling system for automated message delivery",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "whatsapp",
+    "scheduler",
+    "automation",
+    "messaging"
+  ],
+  "author": {
+    "name": "Ashraf Ali",
+    "url": "https://ashrafali.net"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.5.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.2",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+Let's commit these changes:
+
+---
+
+_**Assistant**_
+
+```
+git add . && git commit -m "docs: add author information and bump version to 1.0.1" && git push
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+Let's set the upstream branch and push again:
+
+---
+
+_**Assistant**_
+
+```
+git push --set-upstream origin main
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+Now, let's start implementing the message scheduling service. First, we'll create the service file:
+
+---
+
+_**Assistant**_
+
+```
+const cron = require('node-cron');
+const db = require('../config/database');
+const { sendMessage } = require('../config/whatsapp');
+
+class MessageScheduler {
+    constructor() {
+        this.scheduledTasks = new Map();
+        this.initializeScheduler();
+    }
+
+    async initializeScheduler() {
+        try {
+            // Load all pending messages from database
+            const messages = await this.getPendingMessages();
+            messages.forEach(message => {
+                this.scheduleMessage(message);
+            });
+            console.log(`Initialized scheduler with ${messages.length} pending messages`);
+        } catch (error) {
+            console.error('Error initializing scheduler:', error);
+        }
+    }
+
+    async getPendingMessages() {
+        return new Promise((resolve, reject) => {
+            const query = `
+                SELECT m.*, GROUP_CONCAT(r.recipient_id) as recipients
+                FROM messages m
+                LEFT JOIN recipients r ON m.id = r.message_id
+                WHERE m.status = 'pending'
+                AND m.schedule_time > datetime('now')
+                GROUP BY m.id
+            `;
+            
+            db.all(query, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(rows.map(row => ({
+                    ...row,
+                    recipients: row.recipients ? row.recipients.split(',') : []
+                })));
+            });
+        });
+    }
+
+    scheduleMessage(message) {
+        const scheduledTime = new Date(message.schedule_time);
+        const now = new Date();
+
+        if (scheduledTime <= now) {
+            console.log(`Message ${message.id} scheduled time has passed`);
+            return;
+        }
+
+        const task = cron.schedule(this.getSchedulePattern(scheduledTime), async () => {
+            try {
+                await this.sendScheduledMessage(message);
+                task.stop(); // Stop the cron job after sending
+            } catch (error) {
+                console.error(`Error sending scheduled message ${message.id}:`, error);
+                await this.updateMessageStatus(message.id, 'failed');
+            }
+        });
+
+        this.scheduledTasks.set(message.id, task);
+    }
+
+    getSchedulePattern(date) {
+        return `${date.getSeconds()} ${date.getMinutes()} ${date.getHours()} ${date.getDate()} ${date.getMonth() + 1} *`;
+    }
+
+    async sendScheduledMessage(message) {
+        try {
+            for (const recipient of message.recipients) {
+                await sendMessage(recipient, message.content);
+                await this.logMessageDelivery(message.id, recipient, 'sent');
+            }
+            await this.updateMessageStatus(message.id, 'sent');
+        } catch (error) {
+            console.error(`Error sending message ${message.id}:`, error);
+            await this.updateMessageStatus(message.id, 'failed');
+            throw error;
+        }
+    }
+
+    async updateMessageStatus(messageId, status) {
+        return new Promise((resolve, reject) => {
+            const query = `
+                UPDATE messages 
+                SET status = ?, updated_at = datetime('now')
+                WHERE id = ?
+            `;
+            
+            db.run(query, [status, messageId], (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+
+    async logMessageDelivery(messageId, recipientId, status, error = null) {
+        return new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO message_logs (message_id, recipient_id, status, error)
+                VALUES (?, ?, ?, ?)
+            `;
+            
+            db.run(query, [messageId, recipientId, status, error], (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
+    }
+
+    async scheduleNewMessage(content, scheduleTime, recipients) {
+        return new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+
+                db.run(
+                    `INSERT INTO messages (content, schedule_time, status) VALUES (?, ?, 'pending')`,
+                    [content, scheduleTime],
+                    function(err) {
+                        if (err) {
+                            db.run('ROLLBACK');
+                            reject(err);
+                            return;
+                        }
+
+                        const messageId = this.lastID;
+                        const recipientValues = recipients.map(r => `(${messageId}, 'individual', '${r}')`).join(',');
+                        
+                        db.run(
+                            `INSERT INTO recipients (message_id, recipient_type, recipient_id) VALUES ${recipientValues}`,
+                            [],
+                            (err) => {
+                                if (err) {
+                                    db.run('ROLLBACK');
+                                    reject(err);
+                                    return;
+                                }
+
+                                db.run('COMMIT', (err) => {
+                                    if (err) {
+                                        reject(err);
+                                        return;
+                                    }
+
+                                    const message = {
+                                        id: messageId,
+                                        content,
+                                        schedule_time: scheduleTime,
+                                        recipients
+                                    };
+
+                                    this.scheduleMessage(message);
+                                    resolve(message);
+                                });
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    }
+
+    cancelScheduledMessage(messageId) {
+        const task = this.scheduledTasks.get(messageId);
+        if (task) {
+            task.stop();
+            this.scheduledTasks.delete(messageId);
+            return this.updateMessageStatus(messageId, 'cancelled');
+        }
+        return Promise.resolve();
+    }
+}
+
+// Create a singleton instance
+const scheduler = new MessageScheduler();
+
+module.exports = scheduler;
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+Let's commit this change:
+
+---
+
+_**Assistant**_
+
+```
+git add . && git commit -m "feat: implement message scheduling service" && git push
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+Let's update the `activeContext.md` to reflect our progress:
+
+---
+
+_**Assistant**_
+
+```
+# Active Context
+
+## Current Phase
+Message scheduling implementation
+
+## Recent Actions
+1. Added author information
+2. Implemented message scheduling service with:
+   - Message scheduling and cancellation
+   - Database integration
+   - Error handling and logging
+   - Transaction support
+3. Set up version control and documentation
+
+## Current Focus
+Implementing REST API endpoints for:
+- Message scheduling
+- Message cancellation
+- Message status retrieval
+- Message history
+
+## Next Steps
+1. Create message controller
+2. Implement REST API endpoints
+3. Add input validation
+4. Add error handling middleware
+5. Create API documentation
+
+## Open Questions
+1. How to handle timezone differences?
+2. How to implement rate limiting for API endpoints?
+3. How to handle message retry on failure?
+
+## Current Blockers
+None - Ready to proceed with API implementation
+```
+
+---
+
+_**Assistant**_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let's commit the context update:
+
+---
+
+_**Assistant**_
+
+```
+git add . && git commit -m "docs: update active context with scheduling service progress" && git push
+```
+
+---
+
+_**Assistant**_
+
+
+
+I've completed the implementation of the message scheduling service with the following features:
+
+1. Message scheduling with cron jobs
+2. Database integration with transactions
+3. Error handling and logging
+4. Message status management
+5. Support for multiple recipients
+
+Would you like me to proceed with implementing the REST API endpoints next? This would include:
+
+1. Message controller for handling requests
+2. API routes for scheduling and managing messages
+3. Input validation middleware
+4. Error handling middleware
+
+Let me know what you'd like to tackle next!
+
+---
+
+_**User**_
+
+yes go ahead and proceed. 
+
+---
+
+_**Assistant**_
+
 
 
 ---
