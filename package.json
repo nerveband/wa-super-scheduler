@@ -1,6 +1,6 @@
 {
   "name": "wa-super-scheduler",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "WhatsApp message scheduling system for automated message delivery",
   "main": "src/index.js",
   "scripts": {
@@ -14,7 +14,10 @@
     "automation",
     "messaging"
   ],
-  "author": "",
+  "author": {
+    "name": "Ashraf Ali",
+    "url": "https://ashrafali.net"
+  },
   "license": "ISC",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.5.0",

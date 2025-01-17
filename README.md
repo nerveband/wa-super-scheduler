@@ -22,7 +22,7 @@ A powerful WhatsApp message scheduling system that allows you to schedule and au
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/wa-super-scheduler.git
+   git clone https://github.com/nerveband/wa-super-scheduler.git
    cd wa-super-scheduler
    ```
 
@@ -86,6 +86,10 @@ wa-super-scheduler/
 ├── sessions/       # WhatsApp session data
 └── data/          # SQLite database
 ```
+
+## Author
+
+[Ashraf Ali](https://ashrafali.net)
 
 ## License
 
