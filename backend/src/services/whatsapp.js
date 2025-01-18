@@ -36,14 +36,26 @@ const logger = winston.createLogger({
             filename: path.join(logsDir, 'whatsapp.log'),
             maxsize: 5242880, // 5MB
             maxFiles: 5,
+        }),
+        // Always show important logs in console
+        new winston.transports.Console({
+            level: 'info',
+            format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.simple()
+            )
         })
     ]
 });
 
-// Add console logging only in development
+// Add debug console logging in development
 if (process.env.NODE_ENV !== 'production') {
     logger.add(new winston.transports.Console({
-        format: winston.format.simple()
+        level: 'debug',
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+        )
     }));
 }
 
