@@ -2,8 +2,11 @@
   "ignore": [
     "sessions/*",
     "data/*",
-    "*.sqlite",
-    "*.sqlite-journal"
+    "*.json",
+    "node_modules/*"
+  ],
+  "watch": [
+    "src/"
   ],
   "ext": "js,json"
 } 
